@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# modified
 
 import sys, os
 import hmac
@@ -44,33 +45,6 @@ def _load_libalfcrypto():
         func.argtypes = argtypes
         return func
 
-    # aes cbc decryption
-    #
-    # struct aes_key_st {
-    # unsigned long rd_key[4 *(AES_MAXNR + 1)];
-    # int rounds;
-    # };
-    #
-    # typedef struct aes_key_st AES_KEY;
-    #
-    # int AES_set_decrypt_key(const unsigned char *userKey, const int bits, AES_KEY *key);
-    #
-    # 
-    # void AES_cbc_encrypt(const unsigned char *in, unsigned char *out,
-    # const unsigned long length, const AES_KEY *key,
-    # unsigned char *ivec, const int enc);
-
-    AES_MAXNR = 14
-
-    class AES_KEY(Structure):
-        _fields_ = [('rd_key', c_long * (4 * (AES_MAXNR + 1))), ('rounds', c_int)]
-
-    AES_KEY_p = POINTER(AES_KEY)
-    AES_cbc_encrypt = F(None, 'AES_cbc_encrypt',[c_char_p, c_char_p, c_ulong, AES_KEY_p, c_char_p, c_int])
-    AES_set_decrypt_key = F(c_int, 'AES_set_decrypt_key',[c_char_p, c_int, AES_KEY_p])
-
-
-
     # Pukall 1 Cipher
     # unsigned char *PC1(const unsigned char *key, unsigned int klen, const unsigned char *src,
     #                unsigned char *dest, unsigned int len, int decryption);
@@ -91,32 +65,6 @@ def _load_libalfcrypto():
     TPZ_CTX_p = POINTER(TPZ_CTX)
     topazCryptoInit = F(None, 'topazCryptoInit', [TPZ_CTX_p, c_char_p, c_ulong])
     topazCryptoDecrypt = F(None, 'topazCryptoDecrypt', [TPZ_CTX_p, c_char_p, c_char_p, c_ulong])
-
-
-    class AES_CBC(object):
-        def __init__(self):
-            self._blocksize = 0
-            self._keyctx = None
-            self._iv = 0
-
-        def set_decrypt_key(self, userkey, iv):
-            self._blocksize = len(userkey)
-            if (self._blocksize != 16) and (self._blocksize != 24) and (self._blocksize != 32) :
-                raise Exception('AES CBC improper key used')
-                return
-            keyctx = self._keyctx = AES_KEY()
-            self._iv = iv
-            rv = AES_set_decrypt_key(userkey, len(userkey) * 8, keyctx)
-            if rv < 0:
-                raise Exception('Failed to initialize AES CBC key')
-
-        def decrypt(self, data):
-            out = create_string_buffer(len(data))
-            mutable_iv = create_string_buffer(self._iv, len(self._iv))
-            rv = AES_cbc_encrypt(data, out, len(data), self._keyctx, mutable_iv, 0)
-            if rv == 0:
-                raise Exception('AES CBC decryption failed')
-            return out.raw
 
     class Pukall_Cipher(object):
         def __init__(self):
@@ -147,13 +95,11 @@ def _load_libalfcrypto():
             topazCryptoDecrypt(ctx, data, out, len(data))
             return out.raw
 
-    print "Using Library AlfCrypto DLL/DYLIB/SO"
-    return (AES_CBC, Pukall_Cipher, Topaz_Cipher)
+    print "Using Library AlfCrypto DLL/DYLIB/SO."
+    return (Pukall_Cipher, Topaz_Cipher)
 
 
 def _load_python_alfcrypto():
-
-    import aescbc
 
     class Pukall_Cipher(object):
         def __init__(self):
@@ -218,73 +164,29 @@ def _load_python_alfcrypto():
                 plainText += chr(m)
             return plainText
 
-    class AES_CBC(object):
-        def __init__(self):
-            self._key = None
-            self._iv = None
-            self.aes = None
-
-        def set_decrypt_key(self, userkey, iv):
-            self._key = userkey
-            self._iv = iv
-            self.aes = aescbc.AES_CBC(userkey, aescbc.noPadding(), len(userkey))
-
-        def decrypt(self, data):
-            iv = self._iv
-            cleartext = self.aes.decrypt(iv + data)
-            return cleartext
-
-    return (AES_CBC, Pukall_Cipher, Topaz_Cipher)
+    print "Using slow Python AlfCrypto implementation."
+    return (Pukall_Cipher, Topaz_Cipher)
 
 
-def _load_crypto():
-    AES_CBC = Pukall_Cipher = Topaz_Cipher = None
+Pukall_Cipher, Topaz_Cipher, is_slow = None, None, None
+
+def load_crypto():
+    """Initialize Pukall_Cipher and Topaz_Cipher.
+
+    It is a no-op if called again.
+    """
+    global Pukall_Cipher, Topaz_Cipher, is_slow
+    if Pukall_Cipher is not None:
+      return
     cryptolist = (_load_libalfcrypto, _load_python_alfcrypto)
     for loader in cryptolist:
         try:
-            AES_CBC, Pukall_Cipher, Topaz_Cipher = loader()
+            Pukall_Cipher, Topaz_Cipher = loader()
             break
-        except (ImportError, Exception):
-            pass
-    return AES_CBC, Pukall_Cipher, Topaz_Cipher
-
-AES_CBC, Pukall_Cipher, Topaz_Cipher = _load_crypto()
-
-
-class KeyIVGen(object):
-    # this only exists in openssl so we will use pure python implementation instead
-    # PKCS5_PBKDF2_HMAC_SHA1 = F(c_int, 'PKCS5_PBKDF2_HMAC_SHA1',
-    #                             [c_char_p, c_ulong, c_char_p, c_ulong, c_ulong, c_ulong, c_char_p])
-    def pbkdf2(self, passwd, salt, iter, keylen):
-
-        def xorstr( a, b ):
-            if len(a) != len(b):
-                raise Exception("xorstr(): lengths differ")
-            return ''.join((chr(ord(x)^ord(y)) for x, y in zip(a, b)))
-
-        def prf( h, data ):
-            hm = h.copy()
-            hm.update( data )
-            return hm.digest()
-
-        def pbkdf2_F( h, salt, itercount, blocknum ):
-            U = prf( h, salt + pack('>i',blocknum ) )
-            T = U
-            for i in range(2, itercount+1):
-                U = prf( h, U )
-                T = xorstr( T, U )
-            return T
-
-        sha = hashlib.sha1
-        digest_size = sha().digest_size
-        # l - number of output blocks to produce
-        l = keylen / digest_size
-        if keylen % digest_size != 0:
-            l += 1
-        h = hmac.new( passwd, None, sha )
-        T = ""
-        for i in range(1, l+1):
-            T += pbkdf2_F( h, salt, iter, i )
-        return T[0: keylen]
-
-
+        except (ImportError, Exception), e:
+            print '%s: %s: %s' % (loader.func_name, e.__class__.__name__, e)
+            if loader == _load_python_alfcrypto:
+                raise
+    is_slow = loader == _load_python_alfcrypto
+    assert Pukall_Cipher
+    assert Topaz_Cipher
