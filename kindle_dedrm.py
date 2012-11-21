@@ -19,6 +19,7 @@ Corresponding documentation:
 * http://wiki.mobileread.com/wiki/Mobi_unpack
 """
 
+import errno
 import os
 import re
 import sys
@@ -45,7 +46,13 @@ def remove_drm(infile, outdir, tokenlist):
   if os.path.exists(outfile):
     print 'Ignoring input because nodrm exists: ' + outfile
     return
-  header = file(infile, 'rb').read(68)
+  try:
+    header = file(infile, 'rb').read(68)
+  except IOError, e:
+    if e[0] != errno.EISDIR:
+      raise
+    print 'Ignoring directory.'
+    return
   if (header.startswith('PK\3\4') or 
       header.startswith('PK\1\2') or
       header.startswith('PK\5\6')):
