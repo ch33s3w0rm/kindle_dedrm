@@ -40,7 +40,11 @@ def remove_drm(infile, outdir, tokenlist):
       print 'Ignoring nodrm file: ' + infile
     outfile = infile
   else:
-    outfile = '%s.nodrm%s' % (inbase, inext)
+    outext = inext
+    if inext == '.azw1':  # Amazon Topaz.
+      # Calibre can't open it with another extension.
+      outext = '.htmlz'
+    outfile = '%s.nodrm%s' % (inbase, outext)
   if outdir:
     outfile = os.path.join(outdir, os.path.basename(outfile))
   if os.path.exists(outfile):
@@ -60,7 +64,6 @@ def remove_drm(infile, outdir, tokenlist):
     format = 'nodrm-zip'
   elif header.startswith('TPZ'):
     format = 'topaz'
-    raise NotImplementedError('Topaz files not implemented.')
   elif header[60 : 68] == 'BOOKMOBI':
     format = 'mobi'
   else:
@@ -119,15 +122,18 @@ def remove_drm(infile, outdir, tokenlist):
     traceback.print_exc(file=sys.stdout)
     return 1
   print 'DRM removed.'
-  # TODO: Add topaz support.
   if format == 'topaz':
     print 'Topaz format detected.'
+    # Calibre can open such .htmlz files and convert them to .epub or .mobi
+    # -- but only if the extension is .htmlz. That's why we have
+    # outfile.endswith('.htmlz') by now.
     ext = 'htmlz'
     try:
-      mb.getHTMLZip(of.name)
+      mb.getHTMLZip(outfile)
     finally:
       # TODO: Do without creating temporary files.
       mb.cleanup()
+    mb = None
   elif mb.getPrintReplica():
     print 'Print Replica format detected.'
     ext = 'azw4'
@@ -138,7 +144,8 @@ def remove_drm(infile, outdir, tokenlist):
     print 'Generic Mobi format detected.'
     ext = 'mobi'
   print 'Recommend output extension: .' + ext
-  mb.getMobiFile(outfile)
+  if mb is not None:
+    mb.getMobiFile(outfile)
 
 
 def usage(argv0):
