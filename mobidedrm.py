@@ -65,16 +65,6 @@ __version__ = '0.37'
 
 import sys
 
-class Unbuffered:
-    def __init__(self, stream):
-        self.stream = stream
-    def write(self, data):
-        self.stream.write(data)
-        self.stream.flush()
-    def __getattr__(self, attr):
-        return getattr(self.stream, attr)
-sys.stdout=Unbuffered(sys.stdout)
-
 import os
 import struct
 import binascii
@@ -430,31 +420,3 @@ def getUnencryptedBookWithList(infile,pidlist,announce=True):
     book = MobiBook(infile, announce)
     book.processBook(pidlist)
     return book.mobi_data
-
-
-def main(argv=sys.argv):
-    print ('MobiDeDrm v%(__version__)s. '
-        'Copyright 2008-2012 The Dark Reverser et al.' % globals())
-    if len(argv)<3 or len(argv)>4:
-        print "Removes protection from Kindle/Mobipocket, Kindle/KF8 and Kindle/Print Replica ebooks"
-        print "Usage:"
-        print "    %s <infile> <outfile> [<Comma separated list of PIDs to try>]" % sys.argv[0]
-        return 1
-    else:
-        infile = argv[1]
-        outfile = argv[2]
-        if len(argv) is 4:
-            pidlist = argv[3].split(',')
-        else:
-            pidlist = {}
-        try:
-            stripped_file = getUnencryptedBookWithList(infile, pidlist, False)
-            file(outfile, 'wb').write(stripped_file)
-        except DrmException, e:
-            print "Error: %s" % e
-            return 1
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
