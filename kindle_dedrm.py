@@ -134,10 +134,10 @@ def remove_drm(infile, outdir, tokenlist):
   mb.getMobiFile(outfile)
 
 
-def usage():
+def usage(argv0):
   print 'Removes protection from Kindle/Mobipocket, Kindle/KF8, Kindle/Print_Replica and Kindle/Topaz ebooks'
   print 'Usage:'
-  print '  %s --kindle=... [--outdir=] <infile> [...]'
+  print '  %s --kindle=... [--outdir=] <infile> [...]' % argv0
   print '--kindle= is a comma-separated list of Kindle serial numbers (16'
   print 'characters) or PIDs (10 or 8 characters).'
 
@@ -159,7 +159,7 @@ def main(argv):
     elif not arg.startswith('-'):
       break
     elif arg in ('--help', '-h', '-?'):
-      usage()
+      usage(argv[0])
       return 0
     elif arg.startswith('--kindle='):
       tokenlist.extend(filter(None, arg.split('=', 1)[1].split(',')))
@@ -173,7 +173,7 @@ def main(argv):
     i += 1
   infiles = argv[i:]
   if not infiles or not had_kindle:
-    usage()
+    usage(argv[0])
     return 1
 
   error_count = 0
