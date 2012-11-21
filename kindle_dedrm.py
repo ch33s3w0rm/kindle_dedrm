@@ -155,8 +155,17 @@ def usage(argv0):
   print '--kindle= is a comma-separated list of Kindle serial numbers (16'
   print 'characters) or PIDs (10 or 8 characters).'
 
+class Unbuffered:
+  def __init__(self, stream):
+    self.stream = stream
+  def write(self, data):
+    self.stream.write(data)
+    self.stream.flush()
+  def __getattr__(self, attr):
+    return getattr(self.stream, attr)
 
 def main(argv):
+  sys.stdout=Unbuffered(sys.stdout)
   print ('kindle_dedrm using MobiDeDrm v%s. '
     'Copyright 2008-2012 The Dark Reverser et al.' % mobidedrm.__version__)
 
