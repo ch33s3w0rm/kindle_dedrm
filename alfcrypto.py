@@ -1,42 +1,47 @@
 #! /usr/bin/env python
 # modified
 
-import sys, os
-import hmac
-import struct
-import hashlib
-
-from struct import pack
-
 # interface to needed routines libalfcrypto
 def _load_libalfcrypto():
+    # Most of the magic here needs Python 2.6 or Python 2.7. It may work with
+    # Python 2.5 as well if the ctypes package is installed, but that's not
+    # tested.
+    #
+    # Tested on:
+    #
+    # * Linux i386
+    # * Linux x86_64
+    # * Mac OS X i386
+    # * Mac OS X x86_64
+    # * Windows XP i386
+    # * Windows XP x86_64
+    # * Windows 7 i386
+    # * Windows 7 x86_64
+
     import ctypes
-    from ctypes import CDLL, byref, POINTER, c_void_p, c_char_p, c_int, c_long, \
-        Structure, c_ulong, create_string_buffer, addressof, string_at, cast, sizeof
+    import os
+    import sys
 
+    platform = sys.platform
+
+    # Also good: pointer_size = struct.calcsize('P')
     pointer_size = ctypes.sizeof(ctypes.c_voidp)
-    name_of_lib = None
-    #if sys.platform.startswith('darwin'):
-    #    name_of_lib = 'libalfcrypto.dylib'
-    #elif sys.platform.startswith('win'):
-    #    if pointer_size == 4:
-    #        name_of_lib = 'alfcrypto.dll'
-    #    else:
-    #        name_of_lib = 'alfcrypto64.dll'
-    #else:
-    #    if pointer_size == 4:
-    #        name_of_lib = 'libalfcrypto32.so'
-    #    else:
-    #        name_of_lib = 'libalfcrypto64.so'
-    #
-    #libalfcrypto = sys.path[0] + os.sep + name_of_lib
-    #
-    #if not os.path.isfile(libalfcrypto):
-    #    raise Exception('libalfcrypto not found')
-    #
-    #libalfcrypto = CDLL(libalfcrypto)
 
-    # TODO: Use base64 etc.
+    try:
+      arch = os.uname()[4]
+    except AttributeError:  # platform == 'win32' doesn't have it.
+      arch = 'unknown'
+
+    # TODO: Maybe it runs on FreeBSD too. Try it.
+    if (arch not in ('i386', 'i486', 'i586', 'i686', 'x86',
+                     'unknown', 'x86_64', 'amd64') or
+        platform not in ('linux', 'linux2', 'win', 'windows', 'win32', 'win64',
+                         'darwin', 'darwin32', 'darwin64')):
+      raise ImportError('Unsupported arch=%r platform=%r' % (arch, platform))
+
+    # TODO: Use base64 or something more compact than hex.
+    #
+    # For your reference, see the source code in alfcrypto.c.
     machine32 = {
         'topazCryptoInit': 0x0,
         'topazCryptoDecrypt': 0x60,
@@ -108,22 +113,44 @@ def _load_libalfcrypto():
     }
     assert len(machine64win['code']) == 0x230
 
-    if struct.calcsize('P') == 4:
+    if pointer_size == 4:
       machine = machine32
-    elif struct.calcsize('P') == 8:
-      machine = machine64
+    elif platform.startswith('win'):
+      # The Windows 64-bit calling conventions are different.
+      # http://en.wikipedia.org/wiki/X86_calling_conventions#x86-64_calling_conventions
+      machine = machine64win
     else:
-      assert 0
+      machine = machine64
 
-    import mmap
-    global m  # Don't free it too early.
-    m = mmap.mmap(-1, len(machine['code']), mmap.MAP_PRIVATE | mmap.MAP_ANON,
-                  mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC)
-    m.write(machine['code'])
-    vp = ctypes.addressof(ctypes.c_char_p.from_buffer(m))
+    global m  # Don't free it until the alfcrypto module is freed.
+    s = machine['code']
+    if platform.startswith('win'):
+      # MEM_COMMIT = 0x1000
+      # MEM_RESERVE = 0x2000
+      # MEM_RELEASE = 0x8000
+      # PAGE_EXECUTE_READWRITE = 0x40
+      class Releaser(object):
+        __slots__ = ('p',)
+        def __init__(self, p):
+          self.p = int(p)
+        def __del__(self):
+          ctypes.windll.kernel32.VirtualFree(self.p, 0, 0x8000)
+      # Allocate executable memory.
+      #
+      # This works as expected on Windows x86_64 as well, because each
+      # argument is passed in a 64-bit register.
+      vp = ctypes.windll.kernel32.VirtualAlloc(0, len(s), 0x3000, 0x40)
+      m = Releaser(vp)
+      ctypes.memmove(vp, s, len(s))
+    else:
+      import mmap
+      # Allocate executable memory.
+      m = mmap.mmap(-1, len(s), mmap.MAP_PRIVATE | mmap.MAP_ANON,
+                    mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC)
+      m.write(s)
+      vp = ctypes.addressof(ctypes.c_char_p.from_buffer(m))
 
-    c_char_pp = POINTER(c_char_p)
-    c_int_p = POINTER(c_int)
+    c_char_pp = ctypes.POINTER(ctypes.c_char_p)
 
     def F(restype, name, argtypes):
         return ctypes.CFUNCTYPE(restype, *argtypes)(vp + machine[name])
@@ -132,7 +159,7 @@ def _load_libalfcrypto():
     # unsigned char *PC1(const unsigned char *key, unsigned int klen, const unsigned char *src,
     #                unsigned char *dest, unsigned int len, int decryption);
 
-    PC1 = F(c_char_p, 'PC1', [c_char_p, c_ulong, c_char_p, c_char_p, c_ulong, c_ulong])
+    PC1 = F(ctypes.c_char_p, 'PC1', [ctypes.c_char_p, ctypes.c_ulong, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_ulong, ctypes.c_ulong])
 
     # Topaz Encryption
     # typedef struct _TpzCtx {
@@ -142,12 +169,12 @@ def _load_libalfcrypto():
     # void topazCryptoInit(TpzCtx *ctx, const unsigned char *key, int klen);
     # void topazCryptoDecrypt(const TpzCtx *ctx, const unsigned char *in, unsigned char *out, int len);
 
-    class TPZ_CTX(Structure):
-        _fields_ = [('v', c_long * 2)]
+    class TPZ_CTX(ctypes.Structure):
+        _fields_ = [('v', ctypes.c_long * 2)]
 
-    TPZ_CTX_p = POINTER(TPZ_CTX)
-    topazCryptoInit = F(None, 'topazCryptoInit', [TPZ_CTX_p, c_char_p, c_ulong])
-    topazCryptoDecrypt = F(None, 'topazCryptoDecrypt', [TPZ_CTX_p, c_char_p, c_char_p, c_ulong])
+    TPZ_CTX_p = ctypes.POINTER(TPZ_CTX)
+    topazCryptoInit = F(None, 'topazCryptoInit', [TPZ_CTX_p, ctypes.c_char_p, ctypes.c_ulong])
+    topazCryptoDecrypt = F(None, 'topazCryptoDecrypt', [TPZ_CTX_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_ulong])
 
     class Pukall_Cipher(object):
         def __init__(self):
@@ -155,7 +182,7 @@ def _load_libalfcrypto():
 
         def PC1(self, key, src, decryption=True):
             self.key = key
-            out = create_string_buffer(len(src))
+            out = ctypes.create_string_buffer(len(src))
             de = 0
             if decryption:
                 de = 1
@@ -174,14 +201,12 @@ def _load_libalfcrypto():
         def decrypt(self, data,  ctx=None):
             if ctx == None:
                 ctx = self._ctx
-            out = create_string_buffer(len(data))
+            out = ctypes.create_string_buffer(len(data))
             topazCryptoDecrypt(ctx, data, out, len(data))
             return out.raw
 
     print "Using inlined AlfCrypto machine code."
     return (Pukall_Cipher, Topaz_Cipher)
-
-_load_libalfcrypto()
 
 
 def _load_python_alfcrypto():

@@ -113,8 +113,8 @@ def remove_drm(infile, outdir, tokenlist):
     mobidedrm.Pukall_Cipher = alfcrypto.Pukall_Cipher
     topazextract.Topaz_Cipher = alfcrypto.Topaz_Cipher
     if alfcrypto.is_slow:
-      print ('WARNING: Running in slow mode. Please download the '
-             'system-specific libraries to speed it up.')
+      print ('WARNING: Running in slow mode. Please run on Linux, Windows or '
+             'Mac OS X (i386 or x86_64) for fast operation.')
   try:
     mb.processBook(pidlst)
   except (topazextract.TpzDRMError, mobidedrm.DrmException):
