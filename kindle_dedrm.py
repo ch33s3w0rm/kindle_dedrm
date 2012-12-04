@@ -30,7 +30,7 @@ import kgenpids
 import mobidedrm
 import topazextract
 
-def remove_drm(infile, outdir, tokenlist):
+def remove_drm(infile, outdir, tokenlist, do_overwrite):
   # TODO: Ignore read errors (IOError), return 1.
   print '\nProcessing book file: ' + infile
   inbase, inext = os.path.splitext(infile)
@@ -48,8 +48,11 @@ def remove_drm(infile, outdir, tokenlist):
   if outdir:
     outfile = os.path.join(outdir, os.path.basename(outfile))
   if os.path.exists(outfile):
-    print 'Ignoring input because nodrm exists: ' + outfile
-    return
+    if do_overwrite:
+      print 'Will overwrite existing output file: ' + outfile
+    else:
+      print 'Ignoring input because nodrm exists: ' + outfile
+      return
   try:
     header = file(infile, 'rb').read(68)
   except IOError, e:
@@ -151,7 +154,8 @@ def remove_drm(infile, outdir, tokenlist):
 def usage(argv0):
   print 'Removes protection from Kindle/Mobipocket, Kindle/KF8, Kindle/Print_Replica and Kindle/Topaz ebooks'
   print 'Usage:'
-  print '  %s --kindle=... [--outdir=] <infile> [...]' % argv0
+  print '  %s [<flag> ...] [--outdir=] <infile> [...]' % argv0
+  print '--overwrite enables overwriting existing output files'
   print '--kindle= is a comma-separated list of Kindle serial numbers (16'
   print 'characters) or PIDs (10 or 8 characters).'
 
@@ -172,6 +176,7 @@ def main(argv):
   # Parse command-line flags.
   outdir = None
   had_kindle = False
+  do_overwrite = False
   tokenlist = []
   i = 1
   while i < len(argv):
@@ -191,6 +196,8 @@ def main(argv):
       if outdir is not None:
         raise RuntimeError('--outdir= specified multiple times.')
       outdir = arg.split('=', 1)[1]
+    elif arg == '--overwrite':
+      do_overwrite = True
     else:
       raise RuntimeError('Unknown command-line flag: ' + arg)
     i += 1
@@ -201,7 +208,7 @@ def main(argv):
 
   error_count = 0
   for infile in infiles:
-    if remove_drm(infile, outdir, tokenlist):
+    if remove_drm(infile, outdir, tokenlist, do_overwrite):
       error_count += 1
 
   print ''
