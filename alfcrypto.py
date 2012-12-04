@@ -3,9 +3,10 @@
 
 import sys, os
 import hmac
-from struct import pack
+import struct
 import hashlib
 
+from struct import pack
 
 # interface to needed routines libalfcrypto
 def _load_libalfcrypto():
@@ -15,35 +16,117 @@ def _load_libalfcrypto():
 
     pointer_size = ctypes.sizeof(ctypes.c_voidp)
     name_of_lib = None
-    if sys.platform.startswith('darwin'):
-        name_of_lib = 'libalfcrypto.dylib'
-    elif sys.platform.startswith('win'):
-        if pointer_size == 4:
-            name_of_lib = 'alfcrypto.dll'
-        else:
-            name_of_lib = 'alfcrypto64.dll'
+    #if sys.platform.startswith('darwin'):
+    #    name_of_lib = 'libalfcrypto.dylib'
+    #elif sys.platform.startswith('win'):
+    #    if pointer_size == 4:
+    #        name_of_lib = 'alfcrypto.dll'
+    #    else:
+    #        name_of_lib = 'alfcrypto64.dll'
+    #else:
+    #    if pointer_size == 4:
+    #        name_of_lib = 'libalfcrypto32.so'
+    #    else:
+    #        name_of_lib = 'libalfcrypto64.so'
+    #
+    #libalfcrypto = sys.path[0] + os.sep + name_of_lib
+    #
+    #if not os.path.isfile(libalfcrypto):
+    #    raise Exception('libalfcrypto not found')
+    #
+    #libalfcrypto = CDLL(libalfcrypto)
+
+    # TODO: Use base64 etc.
+    machine32 = {
+        'topazCryptoInit': 0x0,
+        'topazCryptoDecrypt': 0x60,
+        'PC1': 0xc0,
+        'code':
+        '5589e58b4510578b7d0c568b75085385c0c7069ee1ffca7e38b89ee1ffca31d2bb9ee1'
+        'ffca8d76008946040fb6041789d9c1e90783c201c1eb020fafcb0fafc069c00720900f'
+        '31c83b551089c3890675d75b5e5f5dc38d76008dbc27000000005589e58b55148b4508'
+        '578b7d105685d2538b088b40047e4231d2eb068d74260089d989cb89cec1eb03c1e003'
+        '31d88b5d0cc1ee0732041389cbc1eb020faff30fb6d80fafdb88041783c20189c869db'
+        '0720900f31f33b551475c65b5e5f5dc3905531c089e557565383ec3c8b5d08837d0c10'
+        '0f85f30000000fb60c430fb6544301c1e10809ca66895445d883c00183f80875e58b5d'
+        '1885db0f84ae000000c745d40000000031f631db8db4260000000031c031ff31c96690'
+        '0fb75445d88d343083c00169f6354e000031ca01de69ca354e000069da5a01000083c1'
+        '0181e3ffff000081e1ffff000001de89ca81e6ffff000031f231d783f80875bd8b4d10'
+        '8b55d40fb604118b4d1c85c9754c89c1c1e10801c131f8c1ef0831f80fb6f88d45d88d'
+        '55e8908d74260066310883c00239d075f68b55d489f88b4d1488041183c20139551889'
+        '55d40f8764ffffff8b451483c43c5b5e5f5dc39031f8c1ef0831f80fb6f889f9c1e108'
+        '01f9ebb2a100000000c744240800000000c744240401000000890424e8fcffffffc745'
+        '14000000008b451483c43c5b5e5f5dc3'.decode('hex'),
+    }
+    assert len(machine32['code']) == 0x1fa
+
+    machine64 = {
+        'topazCryptoInit': 0x0,
+        'topazCryptoDecrypt': 0x50,
+        'PC1': 0xb0,
+        'code':
+        '85d2c7079ee1ffca7e3f83ea01b89ee1ffca4c8d44160189c10f1f8000000000894704'
+        '0fb60689cac1ea07c1e9024883c6010fafd10fafc069c00720900f31d04c39c689c189'
+        '0775d7f3c30f1f44000085c9448b078b47047e4d83e9014c8d4c0e01eb070f1f400041'
+        '89c84489c1c1e0034489c7c1e903c1ef0731c832064489c1c1e9024883c6010faff90f'
+        'b6c888024883c2010fafc94489c069c90720900f31f94c39ce75c1f3c30f1f80000000'
+        '0041574889c831c941564155415455534883ec1883fe104989e40f8507010000900fb6'
+        '340f0fb65c0f01c1e60809f36641891c0c4883c1024883f91075e34585c00f84ba0000'
+        '004183e8014c8d6c24104989c64e8d7c000131db4531db0f1f40004c89e14d89e231ff'
+        '31ed4531c00f1f00410fb7328d1c1f83c7014983c20269db354e00004431c64401db44'
+        '69c6354e00004469de5a0100004183c0014181e3ffff00004181e0ffff00004401db44'
+        '89c681e3ffff000031de31f583ff0875b14585c90fb63a754989fec1e60801fe31efc1'
+        'ed0831ef81e7ff0000000f1f4400006631314883c1024c39e975f441883e4983c60148'
+        '83c2014d39fe0f8560ffffff4883c4185b5d415c415d415e415fc39031efc1ed0831ef'
+        '81e7ff00000089fec1e60801feebba488b3d00000000ba00000000be0100000031c0e8'
+        '000000004883c41831c05b5d415c415d415e415fc3'.decode('hex'),
+    }
+    assert len(machine64['code']) == 0x1ff
+
+    machine64win = {
+        'topazCryptoInit': 0x0,
+        'topazCryptoDecrypt': 0x60,
+        'PC1': 0xd0,
+        'code':
+        '4883ec084585c0c7019ee1ffca7e404183e801b89ee1ffca4e8d5402014189c1894104'
+        '0fb6024589c841c1e80741c1e9024883c201450fafc10fafc069c00720900f4431c04c'
+        '39d24189c1890175d14883c408c36666662e0f1f8400000000004883ec084585c9448b'
+        '118b41047e544183e9014e8d5c0a01eb09660f1f4400004189ca4489d1c1e0034589d1'
+        'c1e90341c1e90731c832024489d1c1e9024883c201440fafc90fb6c84188004983c001'
+        '0fafc94489d069c90720900f4431c94c39da75bd4883c408c30f1f8400000000004157'
+        '31c0415641554154555756534883ec3883fa108bb424a0000000448bb424a80000004c'
+        '8d6c24200f850a010000900fb61c010fb6540101c1e30809da6641895405004883c002'
+        '4883f81075e285f60f84b900000083ee014c8d6424304c89c84d8d7c310131ff31f666'
+        '0f1f4400004c89ea4c89eb4531d231ed4531db66900fb70b418d3c3a4183c2014883c3'
+        '0269ff354e00004431d901f74469d9354e000069f15a0100004183c30181e6ffff0000'
+        '4181e3ffff000001f74489d981e7ffff000031f931cd4183fa0875b34585f6410fb618'
+        '754d89d9c1e10801d931ebc1ed0831eb81e3ff000000660f1f44000066310a4883c202'
+        '4c39e275f488184883c0014983c0014c39f80f8561ffffff4883c4384c89c85b5e5f5d'
+        '415c415d415e415fc331ebc1ed0831eb81e3ff00000089d9c1e10801d9ebb7ff150000'
+        '0000488d0d000000004c8d486041b810000000ba01000000e8000000004531c9ebb090'
+        .decode('hex'),
+    }
+    assert len(machine64win['code']) == 0x230
+
+    if struct.calcsize('P') == 4:
+      machine = machine32
+    elif struct.calcsize('P') == 8:
+      machine = machine64
     else:
-        if pointer_size == 4:
-            name_of_lib = 'libalfcrypto32.so'
-        else:
-            name_of_lib = 'libalfcrypto64.so'
-    
-    libalfcrypto = sys.path[0] + os.sep + name_of_lib
+      assert 0
 
-    if not os.path.isfile(libalfcrypto):
-        raise Exception('libalfcrypto not found')
-
-    libalfcrypto = CDLL(libalfcrypto)
+    import mmap
+    global m  # Don't free it too early.
+    m = mmap.mmap(-1, len(machine['code']), mmap.MAP_PRIVATE | mmap.MAP_ANON,
+                  mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC)
+    m.write(machine['code'])
+    vp = ctypes.addressof(ctypes.c_char_p.from_buffer(m))
 
     c_char_pp = POINTER(c_char_p)
     c_int_p = POINTER(c_int)
 
-
     def F(restype, name, argtypes):
-        func = getattr(libalfcrypto, name)
-        func.restype = restype
-        func.argtypes = argtypes
-        return func
+        return ctypes.CFUNCTYPE(restype, *argtypes)(vp + machine[name])
 
     # Pukall 1 Cipher
     # unsigned char *PC1(const unsigned char *key, unsigned int klen, const unsigned char *src,
@@ -95,8 +178,10 @@ def _load_libalfcrypto():
             topazCryptoDecrypt(ctx, data, out, len(data))
             return out.raw
 
-    print "Using Library AlfCrypto DLL/DYLIB/SO."
+    print "Using inlined AlfCrypto machine code."
     return (Pukall_Cipher, Topaz_Cipher)
+
+_load_libalfcrypto()
 
 
 def _load_python_alfcrypto():
