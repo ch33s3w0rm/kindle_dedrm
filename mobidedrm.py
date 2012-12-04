@@ -371,7 +371,9 @@ class MobiBook:
                 raise DrmException("Not yet initialised with PID. Must be opened with Mobipocket Reader first.")
             found_key, pid = self.parseDRM(self.sect[drm_ptr:drm_ptr+drm_size], drm_count, goodpids)
             if not found_key:
-                raise DrmException("No key found in " + str(len(goodpids)) + " keys tried. Please report this failure for help.")
+            	if not pidlist:
+            	    raise DrmException("No keys passed.")  # Don't change this msg.
+                raise DrmException("No key found in " + str(len(goodpids)) + " keys tried. Maybe wrong serial or PID was specified.")
             # kill the drm keys
             self.patchSection(0, "\0" * drm_size, drm_ptr)
             # kill the drm pointers

@@ -30,6 +30,16 @@ import kgenpids
 import mobidedrm
 import topazextract
 
+
+TOKEN_DOC = (
+    'Specify either the 16-character device serial number (DSN,\n'
+    'Kindle ID) of the Kindle (open the Settings menu in the Kindle\n'
+    'and find it there or on http://kindle.com/ in your devices;\n'
+    'usually starts with B0, and contains lots of numbers; there may\n'
+    'be spaces inside) or the 10-character or the 8-character PID\n'
+    '(personal ID) of an old Kindle.')
+
+
 def remove_drm(infile, outdir, tokenlist, do_overwrite):
   # TODO: Ignore read errors (IOError), return 1.
   print '\nProcessing book file: ' + infile
@@ -103,7 +113,9 @@ def remove_drm(infile, outdir, tokenlist, do_overwrite):
     elif len(token) == 16:
       serials.append(token)
     else:
-      raise RuntimeError('Unknown PID or serial: ' + token)
+      print 'Unrecognized PID or serial %r specified in the command line.'
+      print TOKEN_DOC
+      sys.exit(2)
 
   title = mb.getBookTitle()
   md1, md2 = mb.getPIDMetaInfo()
@@ -120,7 +132,11 @@ def remove_drm(infile, outdir, tokenlist, do_overwrite):
              'Mac OS X (i386 or x86_64) for fast operation.')
   try:
     mb.processBook(pidlst)
-  except (topazextract.TpzDRMError, mobidedrm.DrmException):
+  except (topazextract.TpzDRMError, mobidedrm.DrmException), e:
+    if str(e) == 'No keys passed.':
+      print 'Removing DRM from this file needs the Kindle serial number or PID.'
+      print 'Please specify it in --kindle=...'
+      return 1
     # This can happen e.g. when the wrong PID or serial number is supplied.
     traceback.print_exc(file=sys.stdout)
     return 1
@@ -157,7 +173,9 @@ def usage(argv0):
   print '  %s [<flag> ...] [--outdir=] <infile> [...]' % argv0
   print '--overwrite enables overwriting existing output files'
   print '--kindle= is a comma-separated list of Kindle serial numbers (16'
-  print 'characters) or PIDs (10 or 8 characters).'
+  print '  characters) or PIDs (10 or 8 characters). This is required for '
+  print '  Kindle e-books, but they are not needed for .prc files with DRM.'
+  print '  ' + TOKEN_DOC.replace('\n', '\n  ')
 
 class Unbuffered:
   def __init__(self, stream):
@@ -194,7 +212,8 @@ def main(argv):
       had_kindle = True
     elif arg.startswith('--outdir='):
       if outdir is not None:
-        raise RuntimeError('--outdir= specified multiple times.')
+        print '--outdir= specified multiple times.'
+        return 1
       outdir = arg.split('=', 1)[1]
     elif arg == '--overwrite':
       do_overwrite = True
@@ -202,7 +221,7 @@ def main(argv):
       raise RuntimeError('Unknown command-line flag: ' + arg)
     i += 1
   infiles = argv[i:]
-  if not infiles or not had_kindle:
+  if not infiles:
     usage(argv[0])
     return 1
 
