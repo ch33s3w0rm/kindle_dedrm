@@ -1,7 +1,14 @@
 # Modified: most of the code was removed.
 
 import binascii
-import hashlib
+try:
+  import hashlib
+  sha1 = hashlib.sha1
+  del hashlib
+except ImportError:  # No hashlib in Python 2.4.
+  import sha
+  sha1 = sha.sha
+  del sha
 
 global charMap1
 global charMap3
@@ -11,7 +18,7 @@ charMap3 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 charMap4 = "ABCDEFGHIJKLMNPQRSTUVWXYZ123456789"
 
 def SHA1(message):
-    ctx = hashlib.sha1()
+    ctx = sha1()
     ctx.update(message)
     return ctx.digest()
 

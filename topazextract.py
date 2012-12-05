@@ -2974,7 +2974,9 @@ class TopazBook:
         print " "
 
     def getHTMLZip(self, zipname):
-        htmlzip = zipfile.ZipFile(zipname,'w',zipfile.ZIP_DEFLATED, False)
+        # Passing arg 4 (allowZip64=False) is redundant, that's the default.
+        # Also arg 4 is not supported in Python 2.4.
+        htmlzip = zipfile.ZipFile(zipname,'w',zipfile.ZIP_DEFLATED)
         htmlzip.write(os.path.join(self.outdir,'book.html'),'book.html')
         htmlzip.write(os.path.join(self.outdir,'book.opf'),'book.opf')
         if os.path.isfile(os.path.join(self.outdir,'cover.jpg')):
@@ -2984,14 +2986,14 @@ class TopazBook:
         htmlzip.close()
 
     def getSVGZip(self, zipname):
-        svgzip = zipfile.ZipFile(zipname,'w',zipfile.ZIP_DEFLATED, False)
+        svgzip = zipfile.ZipFile(zipname,'w',zipfile.ZIP_DEFLATED)
         svgzip.write(os.path.join(self.outdir,'index_svg.xhtml'),'index_svg.xhtml')
         zipUpDir(svgzip, self.outdir, 'svg')
         zipUpDir(svgzip, self.outdir, 'img')
         svgzip.close()
     
     def getXMLZip(self, zipname):
-        xmlzip = zipfile.ZipFile(zipname,'w',zipfile.ZIP_DEFLATED, False)
+        xmlzip = zipfile.ZipFile(zipname,'w',zipfile.ZIP_DEFLATED)
         targetdir = os.path.join(self.outdir,'xml')
         zipUpDir(xmlzip, targetdir, '')
         zipUpDir(xmlzip, self.outdir, 'img')

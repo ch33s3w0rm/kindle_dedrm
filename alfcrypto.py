@@ -193,7 +193,7 @@ def _load_libalfcrypto():
           raise TypeError
         if isinstance(fp, int) and not fp:
           raise ValueError
-        
+
         def call(*args):
           if isinstance(fp, str):
             return d.call(fp, *args)
@@ -211,6 +211,21 @@ def _load_libalfcrypto():
           return struct.unpack('i', arys[44 : 48])[0]
 
         return call
+    elif not getattr(ctypes.c_char_p, 'from_buffer', None):
+      # Method .from_buffer is missing in Python 2.5. Present in Python 2.6.
+      import mmap
+      class CtypesMmapReleaser(object):
+        __slots__ = ('p', 'size')
+        def __init__(self, p, size):
+          self.p = int(p)
+          self.size = int(size)
+        def __del__(self):
+          ctypes.pythonapi.munmap(self.p, self.size)
+      vp = ctypes.pythonapi.mmap(0, len(s),
+                   mmap.PROT_READ | mmap.PROT_WRITE | mmap.PROT_EXEC,
+                   mmap.MAP_PRIVATE | mmap.MAP_ANON, -1, 0)
+      m = CtypesMmapReleaser(vp, len(s))
+      ctypes.memmove(vp, s, len(s))
     else:
       import mmap
       # Allocate executable memory.
