@@ -7,7 +7,7 @@ zip -9 mk.zip alfcrypto.py kgenpids.py kindle_dedrm.py mobidedrm.py \
 rm -f __main__.py
 (echo '#! /bin/sh
 #
-# kindle_dedrm: command-line Kindle DRM remover.
+# kindle_dedrm: Python 2.x script for removing DRM from Kindle and .prc e-books
 #
 # Run this file with python2.6 or python2.7, or unzip it to see its source.
 # It also works with python2.5 and python2.4 on Unix, but it is not recommended
@@ -27,6 +27,6 @@ PYTHONPATH="$0:$PYTHONPATH" exec python -c \
 exit 1
 '
  cat mk.zip
-) >out/kindle_dedrm
-chmod 755 out/kindle_dedrm
+) >kindle_dedrm
+chmod 755 kindle_dedrm
 : mk.sh OK.
