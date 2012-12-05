@@ -1,8 +1,9 @@
 kindle_dedrm: Python 2.x script for removing DRM from Kindle and .prc e-books
 
 To use, install Python 2.x (recommended: 2.7, 2.6 or 2.5), download the
-kindle_dedrm script from the release directory, and run it in the
-command-line. There is no graphical user interface.
+kindle_dedrm script from here:
+https://github.com/ch33s3w0rm/kindle_dedrm/raw/master/release/kindle_dedrm
+, and run it in the command-line. There is no graphical user interface.
 
 Compatible with Linux, Mac OS X, Windows and any operating system Python 2.x
 runs on.
