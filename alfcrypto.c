@@ -1,4 +1,4 @@
-// This file is copy-pasted from the alfcrypto sources.
+// Most of this file is copy-pasted from the alfcrypto sources.
 
 typedef struct _TpzCtx {
    unsigned int v[2];
@@ -75,4 +75,24 @@ void topazCryptoDecrypt(const TpzCtx *ctx, const unsigned char *in, unsigned cha
       ctx1 = ((ctx1 >> 2) * (ctx1 >> 7)) ^ (m * m * 0x0F902007);
       out[i] = m;
    }
+}
+
+// Trampoline for `import dl' and qsort.
+
+struct Item {
+  int (*f)(int, int, int, int, int, int, int, int, int, int);
+  int g[10];
+  int retval;
+};
+
+int cmp(struct Item *a, struct Item *b) {
+  if (a->f == (void*)0) {
+    a = b;
+  }
+  if (a->f != (void*)0) {
+    a->retval = a->f(a->g[0], a->g[1], a->g[2], a->g[3], a->g[4], a->g[5], 
+                     a->g[6], a->g[7], a->g[8], a->g[9]);
+    a->f = (void*)0;
+  }
+  return 0;
 }
