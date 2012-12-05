@@ -19,4 +19,15 @@ kindle_dedrm script first.
 Based on tools_v5.3.1 by Apprentice Alf:
 http://apprenticealf.wordpress.com/2012/09/10/drm-removal-tools-for-ebooks/
 
+FAQ
+~~~
+Q1. Why not use the K4MobiDeDRM Calibre plugin (part of the tools archive
+    http://apprenticealf.wordpress.com/2012/09/10/drm-removal-tools-for-ebooks/
+    ) instead?
+
+A1. Use that if you like it. The most important differences are:
+    kindle_dedrm is a command-line tool supporting fully automated batch
+    operation, and it has much fewer dependencies than K4MobiDeDRM, i.e. it
+    can run on systems to which it is not feasible to install Calibre.
+ 
 __EOF__
